@@ -1,4 +1,5 @@
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <utility>
 #include <stdlib.h>
@@ -7,14 +8,19 @@
 #include "solve_iter.cpp"
 
 using std::vector;
-using MethodT = Matrix(Matrix, Matrix);
+using MethodT = std::function<Matrix(Matrix, Matrix)>;
 
+// реализованные методы и их количетство
+int m_num = 4;
+vector<MethodT> methods{gauss, main_el, main_el_2, rotation};
+
+// возвращает квадратную матрицу из равномерного распредения на [0, 1]
 Matrix rand_sq_matrix(int n) {
 	return rand_matrix(n, n);
 }
 
 // возвращает точность и время
-std::pair<double, double> do_test(int t_size, Matrix method(Matrix, Matrix), Matrix gen_m(int) = rand_sq_matrix) {
+std::pair<double, double> test(int t_size, MethodT method, Matrix gen_m(int) = rand_sq_matrix) {
     Matrix A = gen_m(t_size);
     Matrix true_X = rand_matrix(t_size, 1);
     Matrix B = A * true_X;
@@ -24,10 +30,11 @@ std::pair<double, double> do_test(int t_size, Matrix method(Matrix, Matrix), Mat
     for (int i = 0; i < t_size; ++i) {
         dist(i, 0) = X(i, 0) - true_X(i, 0);
     }
-    return {log10(norm_one(dist) / norm_one(true_X)), double(clock() - t_0) / 1e6};
+    return {log10(norm_one(dist) / norm_one(true_X)), double(clock() - t_0) / CLOCKS_PER_SEC};
 }
 
-void get_time_data(std::string adr = "./data_time") {
+// получает и записывает данные о времени работы
+void get_time_data(std::string adr = "data/time") {
 	std::cout << "Time " << std::endl;
 	vector<int> test_size;
 	for (int i = 5; i < 50; i += 5) {
@@ -44,14 +51,13 @@ void get_time_data(std::string adr = "./data_time") {
     int cnt = 0;
     for (int i : test_size) {
         std::cout << i << ' ' << cnt++ << "/" << test_size.size() << std::endl; 
-        res[0].push_back(do_test(i, gauss));
-        res[1].push_back(do_test(i, main_el));
-        res[2].push_back(do_test(i, main_el_2));
-        res[3].push_back(do_test(i, rotation));
+        for (int m_i = 0; m_i < m_num; ++m_i) {
+            res[m_i].push_back(test(i, methods[m_i]));
+        }
     }
     // запись в файлы
     std::ofstream dim_f(adr + "_dim.txt");
-    std::ofstream time_f(adr + "_time.txt");
+    std::ofstream time_f(adr + ".txt");
     for (int i : test_size) {
         dim_f << i << ' ';
     }
@@ -64,7 +70,17 @@ void get_time_data(std::string adr = "./data_time") {
     }
 }
 
-void get_acc_data(std::string adr, int att_num = 1) {
+// возвращает среднюю точность после нескольких измерений
+double tests(int i, MethodT method, Matrix gen(int), int t_num = 30) {
+    double ans = 0;
+    for (int t_i = 0; t_i < t_num; ++t_i) {
+        ans += test(i, method, gen).first;
+    }
+    return ans / t_num;
+}
+
+// получает и записывает данные о точности
+void get_acc_data(std::string adr = "data/acc", int att_num = 1) {
 	std::vector<int> test_size;
 	for (int i = 5; i < 50; i += 5) {
 		test_size.push_back(i);
@@ -75,26 +91,19 @@ void get_acc_data(std::string adr, int att_num = 1) {
 	for (int i = 200; i < 400; i += 40) {
 		test_size.push_back(i);
 	}
-	std::cout << "Accuracy" << std::endl;
+	std::cout << "Accuracy, " << att_num << std::endl;
     int m_num = 4;
     vector<vector<double>> res(m_num);
     int cnt = 0;
     int64_t time_0 = clock();
     for (int i : test_size) {
-        vector<double> mean_res(m_num, 0.0);
-        for (int i_t = 0; i_t < att_num; ++i_t) {
-            mean_res[0] += do_test(i, gauss).first;
-            mean_res[1] += do_test(i, main_el).first;
-            mean_res[2] += do_test(i, main_el_2).first;
-            mean_res[3] += do_test(i, rotation).first;
-        }
-        for (int i_m = 0; i_m < m_num; ++i_m) {
-            res[i_m].push_back(mean_res[i_m] / double(att_num));
+        for (int m_i = 0; m_i < m_num; ++m_i) {
+            res[m_i].push_back( tests(i, methods[m_i], rand_sq_matrix, att_num) );
         }
         std::cout << i << ' ' << ++cnt << "/" << test_size.size() << std::endl;
     }
     std::ofstream dim_f(adr + "_dim.txt");
-    std::ofstream acc_f(adr + "_acc.txt");
+    std::ofstream acc_f(adr + ".txt");
     for (int i : test_size) {
         dim_f << i << ' ';
     }
@@ -105,9 +114,10 @@ void get_acc_data(std::string adr, int att_num = 1) {
         }
         acc_f << std::endl;
     }
-    std::cout << double(clock() - time_0) / 1e6 << std::endl;
+    std::cout << double(clock() - time_0) / CLOCKS_PER_SEC << std::endl;
 }
 
+// генерирует квадратную матрицу, близкую к линейно зависимой
 Matrix bad_matrix(int n) {
     double k = 1e-7;
     Matrix row = rand_matrix(1, n);
@@ -120,6 +130,7 @@ Matrix bad_matrix(int n) {
 	return A;
 }
 
+// возвращает матрицу Гильберта размера n на n
 Matrix hilb_m(int n) {
     Matrix ans(n, n);
     for (int i = 0; i < n; ++i) {
@@ -130,15 +141,8 @@ Matrix hilb_m(int n) {
     return ans;
 }
 
-double do_tests(int i, MethodT method, Matrix gen(int), int t_num = 30) {
-    double ans = 0;
-    for (int t_i = 0; t_i < t_num; ++t_i) {
-        ans += do_test(i, method, gen).first;
-    }
-    return ans / t_num;
-}
-
-void test_acc_bad_m(std::string adr = "./data_bad_acc") {
+// получает и записывает данные о точности на плохих матрицах (близких к линейно зависимым)
+void test_acc_bad_m(std::string adr = "data/bad_acc") {
 	vector<int> test_size;
 	for (int i = 5; i < 300; i += 20) {
 		test_size.push_back(i);
@@ -149,14 +153,13 @@ void test_acc_bad_m(std::string adr = "./data_bad_acc") {
     int cnt = 0;
     int64_t time_0 = clock();
     for (int i : test_size) {
-        res[0].push_back( do_tests(i, gauss, bad_matrix) );
-        res[1].push_back( do_tests(i, main_el, bad_matrix) );
-        res[2].push_back( do_tests(i, main_el_2, bad_matrix) );
-        res[3].push_back( do_tests(i, rotation, bad_matrix) );
-		std::cout << i << ' ' << ++cnt << "/" << test_size.size() << std::endl;
+        for (int m_i = 0; m_i < m_num; ++m_i) {
+            res[m_i].push_back( tests(i, methods[m_i], bad_matrix) );
+		}
+        std::cout << i << ' ' << ++cnt << "/" << test_size.size() << std::endl;
     }
     std::ofstream dim_f(adr + "_dim.txt");
-    std::ofstream acc_f(adr + "_acc.txt");
+    std::ofstream acc_f(adr + ".txt");
     for (int i : test_size) {
         dim_f << i << ' ';
     }
@@ -167,11 +170,12 @@ void test_acc_bad_m(std::string adr = "./data_bad_acc") {
         }
         acc_f << std::endl;
     }
-    std::cout << double(clock() - time_0) / 1e6 << std::endl;
+    std::cout << double(clock() - time_0) / CLOCKS_PER_SEC << std::endl;
 }
 
-void test_hilbert_m() {
-    std::ofstream out("./hilb.txt");
+// получает и записывает данные о точности на матрицах Гильберта
+void test_hilbert_m(std::string addr = "data/hilb") {
+    std::ofstream out(addr + ".txt");
     vector<int> t_size;
     vector<double> res[4];
     for (int i = 1; i < 12; i++) {
@@ -181,13 +185,12 @@ void test_hilbert_m() {
     out << std::endl;
     std::cout << "hilbert matrices" << std::endl;
     int cnt = 0;
+    int a_n = 10;
     for (int i : t_size) {
-        int a_n = 10;
-        res[0].push_back( do_tests(i, gauss, hilb_m, a_n) );
-        res[1].push_back( do_tests(i, main_el, hilb_m, a_n) );
-        res[2].push_back( do_tests(i, main_el_2, hilb_m, a_n) );
-        res[3].push_back( do_tests(i, rotation, hilb_m, a_n) );
-		std::cout << i << ' ' << ++cnt << "/" << t_size.size() << std::endl;
+        for (int m_i = 0; m_i < m_num; ++m_i) {
+            res[m_i].push_back( tests(i, methods[m_i], hilb_m, a_n) );
+		}
+        std::cout << i << ' ' << ++cnt << "/" << t_size.size() << std::endl;
     }
     for (int i = 0; i < 4; ++i) {
         for (double j : res[i]) {
@@ -198,10 +201,13 @@ void test_hilbert_m() {
 }
 
 int main() {
+    uint64_t time_0 = clock();
     get_time_data(); // время
-    get_acc_data("./data_1"); // точность при 1 измерении
-    get_acc_data("./data_2", 30); // точность на хороших матрицах
+    get_acc_data("data/acc_1"); // точность при 1 измерении
+    get_acc_data("data/acc_2", 30); // точность на хороших матрицах
     test_acc_bad_m(); // точность на матрицах, близких к линейно зависимым
     test_hilbert_m(); // матрицы Гильберта
+    uint64_t time = (clock() - time_0) / CLOCKS_PER_SEC;
+    std::cout << "TOTAL TIME: " << time / 60 << ":" << time % 60 << std::endl;
     return 0;
 }

@@ -5,9 +5,10 @@
 #include "solve_iter.cpp"
 #include "solve_sys.cpp"
 
-using iter_m = Matrix(Matrix, Matrix, int, Matrix);
+using IterM = Matrix(Matrix, Matrix, int, Matrix);
 using std::vector;
 
+// случайная матрица с заданной нормой L_1
 Matrix rand_m_norm_one(int n, int m, double val = 0.5) {
     Matrix ans = rand_matrix(n, m);
     double k = val / norm_one(ans);
@@ -19,9 +20,10 @@ Matrix rand_m_norm_one(int n, int m, double val = 0.5) {
     return ans;
 }
 
-void test_convergention(std::string adr, const vector<int>& iter_n, iter_m method) {
+// запись данных о скорости сходимости
+void test_convergention(std::string addr, const vector<int>& iter_n, IterM method) {
 	vector<int> dim{5, 10, 50, 200};
-    std::ofstream file(adr + "_data.txt");
+    std::ofstream file(addr);
     for (int i : dim) {
         file << i << ' ';
     }
@@ -47,37 +49,8 @@ void test_convergention(std::string adr, const vector<int>& iter_n, iter_m metho
     }
 }
 
-int iter_num(iter_m method, const Matrix& A, const Matrix X_0) {
-    int ans = 1;
-    Matrix B = A * X_0;
-    Matrix X = method(A, B, 1, rand_matrix(A.n, 1));
-    while (dist(X, X_0) / norm_one(X_0) > 1e-10) {
-        X = method(A, B, 1, X);
-        ++ans;
-    }
-    return ans;
-}
-
-void test_iter_num() {
-    int n = 200;
-    int att_num = 20;
-    std::ofstream out("./iter_num_data.txt");
-    for (double k = 0.1; k < 16; k += 0.5) {
-        double mean = 0;
-        for (int i = 0; i < att_num; ++i) {
-            Matrix A = rand_m_norm_one(n, n, k);
-            for (int i = 0; i < n; ++i) {
-                A(i, i) += 1;
-            }
-            Matrix X_0 = rand_matrix(A.n, 1);
-            mean += iter_num(zeidel, A, X_0);
-        }
-        out << k << ' ' << mean / double(att_num) << std::endl;
-    }
-}
-
-void test_not_conv() {
-    std::ofstream out("./not_conv.txt");
+void test_not_conv(std::string addr = "data_iter/not_conv.txt") {
+    std::ofstream out(addr);
     Matrix A(2, 2, {1, 2, 3, 4});
     Matrix B(2, 1, {1, 2});
     Matrix true_X = rotation(A, B);
@@ -90,13 +63,15 @@ void test_not_conv() {
 }
 
 int main() {
-    test_not_conv();
-    test_iter_num();
+    double time_0 = clock();
     vector<int> iter_n;
     for (int i = 5; i < 100; i += 5) {
         iter_n.push_back(i);
     }
-    test_convergention("./data_iter", iter_n, iter_method);
-    test_convergention("./data_iter_2", iter_n, zeidel);
+    test_convergention("data_iter/conv1.txt", iter_n, iter_method);
+    test_convergention("data_iter/conv2.txt", iter_n, zeidel);
+    test_not_conv();
+    uint64_t time = (clock() - time_0) / CLOCKS_PER_SEC;
+    std::cout << "TOTAL TIME: " << time / 60 << ":" << time % 60 << std::endl;
     return 0;
 }

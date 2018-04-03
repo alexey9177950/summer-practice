@@ -7,7 +7,7 @@ static double eps = 1e-10;
 
 static void check_args(const Matrix A, Matrix B) {
     if (A.n != A.m || A.n != B.n || B.m != 1) {
-        throw std::exception();
+        throw std::invalid_argument("Wrong size of matrices");
     }
 }
 
@@ -39,7 +39,7 @@ static Matrix get_ans(const Matrix& A, const Matrix& B) {
     return X;
 }
 
-
+// метод Гаусса
 Matrix gauss(Matrix A, Matrix B) {
     check_args(A, B);
 
@@ -70,6 +70,7 @@ Matrix gauss(Matrix A, Matrix B) {
     return get_ans(A, B); 
 }
 
+// выбор главного элемента
 Matrix main_el(Matrix A, Matrix B) {
     check_args(A, B);
 
@@ -103,6 +104,7 @@ Matrix main_el(Matrix A, Matrix B) {
     return get_ans(A, B);
 }
 
+// выбор главного элемента по подматрице
 Matrix main_el_2(Matrix A, Matrix B) {
     check_args(A, B);
     // перестановка столбцов:
@@ -175,6 +177,7 @@ static void rotate(Matrix& A, Matrix& B, int i_1, int i_2) {
     B(i_2, 0) = b_2;
 }
 
+// метод вращений
 Matrix rotation(Matrix A, Matrix B) {
     for (int i = 0; i < A.n; ++i) {
         for (int j = i + 1; j < A.n; ++j) {

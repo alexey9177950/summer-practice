@@ -1,6 +1,8 @@
 #ifndef SOLVE_ITER_INCLUDED
 #define SOLVE_ITER_INCLUDED
+#include "matrix.cpp"
 
+// метод простой итерации
 Matrix iter_method(Matrix A, Matrix B, int iter_num = 100, Matrix X = rand_matrix(0, 0)) {
     if (X.n == 0) {
         X = rand_matrix(A.n, 1);
@@ -24,6 +26,7 @@ Matrix iter_method(Matrix A, Matrix B, int iter_num = 100, Matrix X = rand_matri
     return X;
 }
 
+// алгоритм Зейделя
 Matrix zeidel(Matrix A, Matrix B, int iter_num = 100, Matrix p_X = rand_matrix(0, 0)) {
     if (p_X.n == 0) {
         p_X = rand_matrix(A.n, 1);

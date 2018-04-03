@@ -33,6 +33,7 @@ public:
         return data_[i * m + j];
     }
 
+    // транспонирование матрицы
     Matrix T() {
         Matrix ans(n, m);
         for (int i = 0; i < n; ++i) {
